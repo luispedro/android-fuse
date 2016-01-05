@@ -6,6 +6,8 @@ import errno
 import time
 import stat
 
+TMP_FILE_NAME = 'tmpfile.tmp'
+
 def build_mode(etype, uperm, gperm, operm):
     mode = {'d': stat.S_IFDIR, 'l': stat.S_IFLNK, '-': stat.S_IFREG}[etype]
     def set_perms(p, r, w, x):
@@ -94,9 +96,13 @@ class AndroidADBFuse(LoggingMixIn, Operations):
 
     def read(self, pathname, size, offset, fh):
         if self.tmpfile != pathname:
-            p = subprocess.call(["adb", "pull", pathname, "tmpfile"])
+            import os
+            p = subprocess.call(["adb", "pull", pathname, TMP_FILE_NAME])
+            if p != 0:
+                raise FuseOSError(errno.EIO)
             self.tmpfile = pathname
-            self.data = open("tmpfile", "rb").read()
+            self.data = open(TMP_FILE_NAME, "rb").read()
+            os.unlink(TMP_FILE_NAME)
         if offset > len(self.data):
             return 0
         return self.data[offset:offset+size]

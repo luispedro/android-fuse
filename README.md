@@ -14,8 +14,9 @@ Usage:
 THIS IS ALPHA SOFTWARE AND MAY DO BAD THINGS TO YOUR PHONE, INCLUDING
 DESTROYING DATA!
 
-A file called `tmpfile` will appear in the working directory. Do not remove it
-while the program is running.
+A file called `tmpfile.tmp` will appear in the working directory (and will be
+removed later unless there is a crash). Do not remove it or mess with it while
+the program is running.
 
 # What works & what does not
 

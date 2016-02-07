@@ -25,16 +25,7 @@ def build_mode(etype, uperm, gperm, operm):
 
     return mode
 
-def parse_link(ltarget):
-    if ltarget is None: return None
-    ltarget = ltarget.strip()
-    if ltarget.startswith("->"):
-        ltarget = ltarget[2:]
-    else:
-        print("cannot parse_link('{}')".format(ltarget))
-    return ltarget.strip()
-
-ls_pat = r'^([dl-])([-rwx]{3})([-rwx]{3})([-rwx]{3})\s+(\w+)\s+(\w+)\s+(\d*)\s+([-0-9]{10} \d\d:\d\d)\s([^ ]+)(\s+->\s+[./\w]+)?'
+ls_pat = r'^([dl-])([-rwx]{3})([-rwx]{3})([-rwx]{3})\s+(\w+)\s+(\w+)\s+(\d*)\s+([-0-9]{10} \d\d:\d\d)\s(.+)$'
 
 def gen_ino(pathname):
     import hashlib
@@ -47,7 +38,13 @@ def parse_ls_line(line):
     if m is None:
         print("Could not parse [{}]".format(line))
         return {}
-    etype, uperm, gperm, operm, owner, gowner, size, mtime, pathname, ltarget = m.groups()
+    etype, uperm, gperm, operm, owner, gowner, size, mtime, pathname = m.groups()
+    if "->" in pathname:
+        pathname, ltarget = pathname.split('->')
+        pathname = pathname.strip()
+        ltarget  = ltarget.strip()
+    else:
+        ltarget = None
     size =(int(size) if size else 0)
     return {
             'etype': etype,
@@ -59,7 +56,7 @@ def parse_ls_line(line):
             'st_blksize': 8192,
             'st_blocks': size//512 + bool(size % 512),
             'pathname': pathname,
-            'ltarget': parse_link(ltarget),
+            'ltarget': ltarget,
 
             # Now, we make up data:
             'st_nlink': 1,
@@ -68,7 +65,7 @@ def parse_ls_line(line):
 
 
 def lsdir(path):
-    p = subprocess.Popen(["adb", "shell", "ls", "-nl", path], stdout=subprocess.PIPE)
+    p = subprocess.Popen(["adb", "shell", "ls", "-nl", "'{}'".format(path)], stdout=subprocess.PIPE)
     data = p.stdout.read()
     for line in data.splitlines():
         yield parse_ls_line(line)

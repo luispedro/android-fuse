@@ -108,6 +108,11 @@ class AndroidADBFuse(LoggingMixIn, Operations):
         attrs = self.getattr(path)
         return attrs['ltarget']
 
+    def rmdir(self, pathname):
+        p = subprocess.call(["adb", "shell", "rmdir", "'{}'".format(pathname),])
+        if p != 0:
+            raise FuseOSError(errno.EIO)
+
     def unlink(self, pathname):
         p = subprocess.call(["adb", "shell", "rm", "'{}'".format(pathname),])
         if p != 0:

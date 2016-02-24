@@ -97,9 +97,12 @@ class AndroidADBFuse(LoggingMixIn, Operations):
             p = subprocess.call(["adb", "pull", pathname, TMP_FILE_NAME])
             if p != 0:
                 raise FuseOSError(errno.EIO)
+            try:
+                self.data = open(TMP_FILE_NAME, "rb").read()
+                os.unlink(TMP_FILE_NAME)
+            except:
+                raise FuseOSError(errno.EIO)
             self.tmpfile = pathname
-            self.data = open(TMP_FILE_NAME, "rb").read()
-            os.unlink(TMP_FILE_NAME)
         if offset > len(self.data):
             return 0
         return self.data[offset:offset+size]
@@ -126,7 +129,7 @@ def main(argv):
         exit(1)
 
     logging.getLogger('fuse.log-mixin').setLevel(logging.DEBUG)
-    f = FUSE(AndroidADBFuse(), argv[1], foreground=True)
+    FUSE(AndroidADBFuse(), argv[1], foreground=True, nothreads=True)
 
 if __name__ == '__main__':
     print("THIS IS COMPLETELY EXPERIMENTAL SOFTWARE")

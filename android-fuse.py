@@ -30,10 +30,11 @@ ls_pat = r'^([dl-])([-rwx]{3})([-rwx]{3})([-rwx]{3})\s+(\w+)\s+(\w+)\s+(\d*)\s+(
 def gen_ino(pathname):
     import hashlib
     m = hashlib.md5()
-    m.update(pathname)
+    m.update(pathname.encode('utf-8'))
     return int(m.hexdigest()[:8], 16)
 
 def parse_ls_line(line):
+    line = line.decode('utf-8')
     m =  re.match(ls_pat, line)
     if m is None:
         print("Could not parse [{}]".format(line))
@@ -65,7 +66,7 @@ def parse_ls_line(line):
 
 
 def lsdir(path):
-    p = subprocess.Popen(["adb", "shell", "ls", "-nl", "'{}'".format(path)], stdout=subprocess.PIPE)
+    p = subprocess.Popen(["adb", "shell", "ls", "-nl", "{}".format(path.encode('utf-8'))], stdout=subprocess.PIPE)
     data = p.stdout.read()
     for line in data.splitlines():
         yield parse_ls_line(line)
@@ -74,22 +75,27 @@ class AndroidADBFuse(LoggingMixIn, Operations):
     def __init__(self):
         self.tmpfile = None
         self.data = None
-        pass
+        self.cache = {}
 
     def readdir(self, pathname, fh):
-        return ['.', '..'] + [entry['pathname'] for entry in lsdir(pathname)]
+        if ('readdir', pathname) not in self.cache:
+            self.cache['readdir', pathname] = ['.', '..'] + [entry['pathname'] for entry in lsdir(pathname)]
+        return self.cache['readdir', pathname]
 
     def getattr(self, path, fh=None):
-        p = subprocess.Popen(["adb", "shell", "ls", "-lnd", "'{}'".format(path)], stdout=subprocess.PIPE)
-        data = p.stdout.read()
-        if data == "{}: No such file or directory\r\n".format(path):
-            raise FuseOSError(errno.ENOENT)
-        for line in data.splitlines():
-            r = parse_ls_line(data)
-            if len(r) == 0:
-                print("COULD NOT getattr for [{}]".format(line))
+        if ('getattr', path) not in self.cache:
+            p = subprocess.Popen(["adb", "shell", "ls", "-lnd", "{}".format(path.encode('utf-8'))], stdout=subprocess.PIPE)
+            data = p.stdout.read()
+            if data == "{}: No such file or directory\r\n".format(path):
                 raise FuseOSError(errno.ENOENT)
-            return r
+            for line in data.splitlines():
+                r = parse_ls_line(data)
+                if len(r) == 0:
+                    print("COULD NOT getattr for [{}]".format(line))
+                    raise FuseOSError(errno.ENOENT)
+                self.cache['getattr', path] = r
+                break
+        return self.cache['getattr', path]
 
     def read(self, pathname, size, offset, fh):
         if self.tmpfile != pathname:
@@ -112,15 +118,16 @@ class AndroidADBFuse(LoggingMixIn, Operations):
         return attrs['ltarget']
 
     def rmdir(self, pathname):
-        p = subprocess.call(["adb", "shell", "rmdir", "'{}'".format(pathname),])
+        p = subprocess.call(["adb", "shell", "rmdir", "{}".format(pathname.encode('utf-8')),])
         if p != 0:
             raise FuseOSError(errno.EIO)
+        self.cache = {}
 
     def unlink(self, pathname):
-        p = subprocess.call(["adb", "shell", "rm", "'{}'".format(pathname),])
+        p = subprocess.call(["adb", "shell", "rm", "{}".format(pathname.encode('utf-8')),])
         if p != 0:
             raise FuseOSError(errno.EIO)
-
+        self.cache = {}
 
 def main(argv):
     if len(argv) != 2:
@@ -129,7 +136,7 @@ def main(argv):
         exit(1)
 
     logging.getLogger('fuse.log-mixin').setLevel(logging.DEBUG)
-    FUSE(AndroidADBFuse(), argv[1], foreground=True, nothreads=True)
+    FUSE(AndroidADBFuse(), argv[1], foreground=True, nothreads=True, encoding='utf-8')
 
 if __name__ == '__main__':
     print("THIS IS COMPLETELY EXPERIMENTAL SOFTWARE")

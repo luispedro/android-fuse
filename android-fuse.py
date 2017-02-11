@@ -66,7 +66,7 @@ def parse_ls_line(line):
 
 
 def lsdir(path):
-    p = subprocess.Popen(["adb", "shell", "ls", "-nl", "{}".format(path.encode('utf-8'))], stdout=subprocess.PIPE)
+    p = subprocess.Popen(["adb", "shell", "ls", "-nl", "'{}'".format(path.encode('utf-8'))], stdout=subprocess.PIPE)
     data = p.stdout.read()
     for line in data.splitlines():
         yield parse_ls_line(line)
@@ -84,7 +84,7 @@ class AndroidADBFuse(LoggingMixIn, Operations):
 
     def getattr(self, path, fh=None):
         if ('getattr', path) not in self.cache:
-            p = subprocess.Popen(["adb", "shell", "ls", "-lnd", "{}".format(path.encode('utf-8'))], stdout=subprocess.PIPE)
+            p = subprocess.Popen(["adb", "shell", "ls", "-lnd", "'{}'".format(path.encode('utf-8'))], stdout=subprocess.PIPE)
             data = p.stdout.read()
             if data == "{}: No such file or directory\r\n".format(path):
                 raise FuseOSError(errno.ENOENT)
@@ -118,13 +118,13 @@ class AndroidADBFuse(LoggingMixIn, Operations):
         return attrs['ltarget']
 
     def rmdir(self, pathname):
-        p = subprocess.call(["adb", "shell", "rmdir", "{}".format(pathname.encode('utf-8')),])
+        p = subprocess.call(["adb", "shell", "rmdir", "'{}'".format(pathname.encode('utf-8')),])
         if p != 0:
             raise FuseOSError(errno.EIO)
         self.cache = {}
 
     def unlink(self, pathname):
-        p = subprocess.call(["adb", "shell", "rm", "{}".format(pathname.encode('utf-8')),])
+        p = subprocess.call(["adb", "shell", "rm", "'{}'".format(pathname.encode('utf-8')),])
         if p != 0:
             raise FuseOSError(errno.EIO)
         self.cache = {}
